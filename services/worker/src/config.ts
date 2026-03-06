@@ -31,6 +31,7 @@ export const config = {
     projectId:    required('VERTEX_AI_PROJECT_ID'),
     clientEmail:  required('GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL'),
     privateKey:   required('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY').replace(/\\n/g, '\n'),
+    model:        process.env.VERTEX_MODEL || 'gemini-2.5-flash-lite',
   },
   worker: {
     concurrency:      optionalInt('CONCURRENCY', 5),

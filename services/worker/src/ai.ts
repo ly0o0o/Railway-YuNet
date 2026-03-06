@@ -16,7 +16,7 @@ const vertexProvider = createVertex({
   },
 })
 
-const model = vertexProvider('gemini-3.1-flash-lite-preview')
+const model = vertexProvider(config.vertex.model)
 
 // ─── Zod Schema（强制 AI 输出结构化 JSON）───────────────────────────────────
 const AIResultSchema = z.object({

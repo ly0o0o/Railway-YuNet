@@ -109,8 +109,7 @@ export async function initSchema(): Promise<void> {
 // ─── 查询已处理的 userId 集合 ────────────────────────────────────────────────
 export async function fetchDoneUserIds(): Promise<Set<string>> {
   const res = await getPool().query<{ user_id: string }>(
-
-    `SELECT user_id FROM kol_profiles WHERE ai_status = 'done'`
+    `SELECT user_id FROM kol_profiles WHERE ai_status IN ('done', 'no_image')`
   )
   return new Set(res.rows.map(r => r.user_id))
 }

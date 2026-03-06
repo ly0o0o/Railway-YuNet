@@ -1,0 +1,6 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "node dist/worker.js"
+restartPolicyType = "never"

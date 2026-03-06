@@ -2,7 +2,7 @@ import 'dotenv/config'
 import pLimit from 'p-limit'
 import { config } from './config.js'
 import { createPool, initSchema, fetchDoneUserIds, upsertKolProfile } from './db.js'
-import { createMilvusClient, fetchKolsFromMilvus } from './milvus.js'
+import { createMilvusClient, closeMilvusClient, fetchKolsFromMilvus } from './milvus.js'
 import { analyzeKol } from './ai.js'
 import type { KolWithVideos, KolProfileRow } from './types.js'
 
@@ -81,7 +81,8 @@ async function main(): Promise<void> {
 
   // 5. 过滤掉已处理完成的
   const pending = allKols.filter(k => !doneIds.has(k.userId))
-  const toProcess = pending.slice(0, config.worker.targetKolCount - doneIds.size)
+  const remaining = Math.max(0, config.worker.targetKolCount - doneIds.size)
+  const toProcess = pending.slice(0, remaining)
 
   if (toProcess.length === 0) {
     console.log('[worker] Nothing to process. All done!')
@@ -107,10 +108,12 @@ async function main(): Promise<void> {
   )
 
   console.log(`=== KOL Worker Finished: ${finished} KOLs processed ===`)
+  await closeMilvusClient()
   process.exit(0)
 }
 
-main().catch(err => {
+main().catch(async err => {
   console.error('[worker] Fatal error:', err)
+  await closeMilvusClient().catch(() => {})
   process.exit(1)
 })

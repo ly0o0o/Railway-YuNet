@@ -2,16 +2,22 @@ import { Pool } from 'pg'
 import { config } from './config.js'
 import type { KolProfileRow } from './types.js'
 
-export let pool: Pool
+let pool: Pool | null = null
 
 export function createPool(): Pool {
   pool = new Pool({ connectionString: config.pg.connectionString })
+  pool.on('error', (err) => console.error('[db] Unexpected pool error:', err))
+  return pool
+}
+
+function getPool(): Pool {
+  if (!pool) throw new Error('[db] Pool not initialized. Call createPool() first.')
   return pool
 }
 
 // ─── 建表 + 索引（幂等） ────────────────────────────────────────────────────
 export async function initSchema(): Promise<void> {
-  await pool.query(`
+  await getPool().query(`
     CREATE TABLE IF NOT EXISTS kol_profiles (
       id                    BIGSERIAL PRIMARY KEY,
 
@@ -46,12 +52,16 @@ export async function initSchema(): Promise<void> {
     )
   `)
 
-  // 唯一约束
-  await pool.query(`
-    ALTER TABLE kol_profiles
-      ADD CONSTRAINT uq_kol_profiles_user_id UNIQUE (user_id)
-      ON CONFLICT DO NOTHING
-  `).catch(() => { /* already exists */ })
+  // 唯一约束（幂等）
+  await getPool().query(`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'uq_kol_profiles_user_id'
+      ) THEN
+        ALTER TABLE kol_profiles ADD CONSTRAINT uq_kol_profiles_user_id UNIQUE (user_id);
+      END IF;
+    END $$
+  `)
 
   // 精确查询索引
   const simpleIndexes: [string, string][] = [
@@ -68,27 +78,27 @@ export async function initSchema(): Promise<void> {
   ]
 
   for (const [name, col] of simpleIndexes) {
-    await pool.query(
+    await getPool().query(
       `CREATE INDEX IF NOT EXISTS ${name} ON kol_profiles (${col})`
     )
   }
 
   // GIN 数组索引
-  await pool.query(`
+  await getPool().query(`
     CREATE INDEX IF NOT EXISTS idx_kol_secondary_tags
       ON kol_profiles USING GIN (secondary_tags)
   `)
-  await pool.query(`
+  await getPool().query(`
     CREATE INDEX IF NOT EXISTS idx_kol_tones
       ON kol_profiles USING GIN (tones)
   `)
 
   // 组合索引
-  await pool.query(`
+  await getPool().query(`
     CREATE INDEX IF NOT EXISTS idx_kol_platform_primary_tag
       ON kol_profiles (platform, primary_tag)
   `)
-  await pool.query(`
+  await getPool().query(`
     CREATE INDEX IF NOT EXISTS idx_kol_platform_region
       ON kol_profiles (platform, region)
   `)
@@ -98,7 +108,8 @@ export async function initSchema(): Promise<void> {
 
 // ─── 查询已处理的 userId 集合 ────────────────────────────────────────────────
 export async function fetchDoneUserIds(): Promise<Set<string>> {
-  const res = await pool.query<{ user_id: string }>(
+  const res = await getPool().query<{ user_id: string }>(
+
     `SELECT user_id FROM kol_profiles WHERE ai_status = 'done'`
   )
   return new Set(res.rows.map(r => r.user_id))
@@ -106,7 +117,7 @@ export async function fetchDoneUserIds(): Promise<Set<string>> {
 
 // ─── Upsert 单条博主数据 ─────────────────────────────────────────────────────
 export async function upsertKolProfile(row: KolProfileRow): Promise<void> {
-  await pool.query(
+  await getPool().query(
     `
     INSERT INTO kol_profiles (
       user_id, account, platform, nickname, email, region, language, signature,

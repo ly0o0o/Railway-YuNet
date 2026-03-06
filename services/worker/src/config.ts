@@ -8,7 +8,10 @@ function required(key: string): string {
 
 function optionalInt(key: string, defaultVal: number): number {
   const val = process.env[key]
-  return val ? parseInt(val, 10) : defaultVal
+  if (!val) return defaultVal
+  const parsed = parseInt(val, 10)
+  if (isNaN(parsed)) throw new Error(`Env var ${key} is not a valid integer: "${val}"`)
+  return parsed
 }
 
 export const config = {
@@ -17,6 +20,9 @@ export const config = {
     token:      required('MILVUS_TOKEN'),
     collection: required('MILVUS_COLLECTION'),
     pageSize:   optionalInt('MILVUS_PAGE_SIZE', 500),
+    timeout:    optionalInt('MILVUS_TIMEOUT', 30000),
+    retries:    optionalInt('MILVUS_RETRIES', 2),
+    retryDelay: optionalInt('MILVUS_RETRY_DELAY', 1000),
   },
   pg: {
     connectionString: required('DATABASE_URL'),

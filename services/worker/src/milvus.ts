@@ -2,14 +2,56 @@ import { MilvusClient } from '@zilliz/milvus2-sdk-node'
 import { config } from './config.js'
 import type { VideoMixedVectorMilvusData, KolWithVideos, VideoItem } from './types.js'
 
-let client: MilvusClient
+let client: MilvusClient | null = null
 
 export function createMilvusClient(): MilvusClient {
-  client = new MilvusClient({
-    address: config.milvus.address,
-    token:   config.milvus.token,
-  })
+  if (!client) {
+    client = new MilvusClient({
+      address: config.milvus.address,
+      token:   config.milvus.token,
+    })
+    console.log('[milvus] Client instance created')
+  }
   return client
+}
+
+function getClient(): MilvusClient {
+  if (!client) throw new Error('[milvus] Client not initialized. Call createMilvusClient() first.')
+  return client
+}
+
+// ─── 带退避重试的 query ───────────────────────────────────────────────────────
+async function queryWithRetry(
+  params: Parameters<MilvusClient['query']>[0],
+  retries = config.milvus.retries,
+  delayMs = config.milvus.retryDelay,
+): Promise<ReturnType<MilvusClient['query']>> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await getClient().query({ ...params, timeout: config.milvus.timeout })
+    if ((res as any).status?.code === 0 || !(res as any).status) {
+      return res
+    }
+    const errMsg = `Milvus query failed: code=${(res as any).status?.code}, reason=${(res as any).status?.reason}`
+    if (attempt === retries) throw new Error(errMsg)
+    const wait = delayMs * Math.pow(1.5, attempt)
+    console.warn(`[milvus] query retry ${attempt + 1}/${retries} after ${wait}ms — ${errMsg}`)
+    await new Promise(r => setTimeout(r, wait))
+  }
+  throw new Error('[milvus] unreachable')
+}
+
+// ─── 优雅关闭 ─────────────────────────────────────────────────────────────────
+export async function closeMilvusClient(): Promise<void> {
+  if (client) {
+    try {
+      await client.closeConnection()
+      console.log('[milvus] Connection closed gracefully')
+    } catch (err) {
+      console.error('[milvus] Error closing connection:', err)
+    } finally {
+      client = null
+    }
+  }
 }
 
 // ─── 拼接封面图 URL ──────────────────────────────────────────────────────────
@@ -33,7 +75,7 @@ export async function fetchKolsFromMilvus(
   console.log(`[milvus] Start fetching from collection: ${collection}`)
 
   while (grouped.size < targetCount) {
-    const res = await client.query({
+    const res = await queryWithRetry({
       collection_name: collection,
       filter:          'platform == "YOUTUBE"',
       output_fields:   [

@@ -119,13 +119,15 @@ async function isImageAccessible(url: string): Promise<boolean> {
 async function buildImageContent(
   videos: VideoItem[]
 ): Promise<{ availableVideos: VideoItem[]; parts: object[] }> {
-  const availableVideos: VideoItem[] = []
+  // 并行检测所有图片可访问性（S1 修复：原为串行，最坏 6 张 * 3s = 18s）
+  const checks = await Promise.all(
+    videos.map(async v => ({ v, ok: await isImageAccessible(v.coverUrl) }))
+  )
+  const availableVideos = checks.filter(c => c.ok).map(c => c.v)
 
-  for (const v of videos) {
-    const ok = await isImageAccessible(v.coverUrl)
-    if (ok) availableVideos.push(v)
-    else console.log(`[ai] Image not accessible, skipping: ${v.coverUrl}`)
-  }
+  checks
+    .filter(c => !c.ok)
+    .forEach(c => console.log(`[ai] Image not accessible, skipping: ${c.v.coverUrl}`))
 
   const titleList = availableVideos
     .map((v, i) => `视频 ${i + 1}：${v.title ?? '（无标题）'}`)
@@ -187,6 +189,6 @@ export async function analyzeKol(
       return analyzeKol(videos, retryCount + 1)
     }
     console.error(`[ai] Max retries reached:`, err)
-    return null
+    throw err  // 抛出让 worker catch 正确标记 error（S0 修复）
   }
 }

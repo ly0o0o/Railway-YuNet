@@ -1,9 +1,7 @@
 'use client'
 
-import { useState } from 'react'
 import { Users, Play, Heart, MapPin, Globe, Tag, ChevronRight } from 'lucide-react'
 import type { KolProfile } from '@/lib/types'
-import KolDetailModal from './KolDetailModal'
 
 function fmt(n: number | null): string {
   if (n === null) return '—'
@@ -24,14 +22,12 @@ const TAG_COLORS: Record<string, string> = {
 const GENDER_ICON: Record<string, string> = { '男': '♂', '女': '♀', '未知': '?' }
 
 export default function KolCard({ kol, onClick }: { kol: KolProfile; onClick?: () => void }) {
-  const [open, setOpen] = useState(false)
   const tagColor = kol.primaryTag ? (TAG_COLORS[kol.primaryTag] || '#6366f1') : '#6366f1'
   const cover = kol.processedVideos?.[0]?.coverUrl
 
   return (
-    <>
-      <article
-        onClick={() => onClick ? onClick() : setOpen(true)}
+    <article
+        onClick={onClick}
         className="rounded-xl overflow-hidden cursor-pointer group transition-all duration-200"
         style={{
           background: 'var(--bg-card)',
@@ -170,8 +166,5 @@ export default function KolCard({ kol, onClick }: { kol: KolProfile; onClick?: (
           </div>
         </div>
       </article>
-
-      {open && <KolDetailModal kol={kol} onClose={() => setOpen(false)} />}
-    </>
   )
 }

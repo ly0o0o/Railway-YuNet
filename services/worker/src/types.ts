@@ -60,7 +60,7 @@ export type PrimaryTag =
   | '人物关系' | '宠物' | '生活方式' | '运动' | '户外'
   | '旅行' | '美食' | 'DIY' | '娱乐' | '游戏'
   | '喜剧' | '艺术' | '学习' | '画面创作' | '知识'
-  | '专业领域' | '金融' | 'AI'
+  | '专业领域' | '金融' | 'AI' | '音乐'
 
 export interface AIAnalysisResult {
   skinTone: SkinTone

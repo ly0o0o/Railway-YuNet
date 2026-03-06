@@ -1,0 +1,30 @@
+{
+  "name": "kol-worker",
+  "version": "1.0.0",
+  "description": "Worker: Milvus → Vertex AI → PostgreSQL KOL profile enrichment",
+  "main": "dist/worker.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/worker.js",
+    "dev": "ts-node src/worker.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/google-vertex": "^1.2.0",
+    "@zilliz/milvus2-sdk-node": "^2.5.0",
+    "ai": "^4.3.0",
+    "dotenv": "^16.4.0",
+    "p-limit": "^6.1.0",
+    "pg": "^8.13.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

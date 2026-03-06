@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+:root {
+  --bg-base: #0d0d0f;
+  --bg-card: #16181d;
+  --bg-card-hover: #1e2028;
+  --bg-sidebar: #111318;
+  --border: #2a2d36;
+  --border-light: #3a3d48;
+  --text-primary: #f0f0f5;
+  --text-secondary: #9099b0;
+  --text-muted: #5a6178;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-dim: #6366f115;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Checkbox custom */
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}

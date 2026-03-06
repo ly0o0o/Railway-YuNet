@@ -33,8 +33,9 @@ const SORT_OPTIONS = [
 ]
 
 interface StatsData {
-  regions: { region: string; count: number }[]
-  languages: { language: string; count: number }[]
+  regions: { value: string; count: number }[]
+  languages: { value: string; count: number }[]
+  statusCounts: Record<string, number>
 }
 
 function SkeletonCard() {
@@ -145,7 +146,7 @@ export default function HomePage() {
           {/* Logo */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, var(--accent), #a855f7)' }}>
+              style={{ background: 'linear-gradient(135deg, #ff7e7e, #e84040)', boxShadow: '0 2px 12px rgba(232,64,64,.35)' }}>
               <BarChart3 size={16} color="#fff" />
             </div>
             <span className="font-bold text-base hidden sm:block" style={{ color: 'var(--text-primary)' }}>KOL Hub</span>
@@ -235,8 +236,8 @@ export default function HomePage() {
               filters={filters}
               onChange={handleFilterChange}
               totalActive={activeCount}
-              regions={stats?.regions.map(r => ({ value: r.region, count: r.count })) ?? []}
-              languages={stats?.languages.map(l => ({ value: l.language, count: l.count })) ?? []}
+              regions={stats?.regions ?? []}
+              languages={stats?.languages ?? []}
             />
           </div>
         </aside>
@@ -258,8 +259,8 @@ export default function HomePage() {
                 filters={filters}
                 totalActive={activeCount}
                 onChange={(f) => { handleFilterChange(f); setSidebarOpen(false) }}
-                regions={stats?.regions.map(r => ({ value: r.region, count: r.count })) ?? []}
-                languages={stats?.languages.map(l => ({ value: l.language, count: l.count })) ?? []}
+                regions={stats?.regions ?? []}
+                languages={stats?.languages ?? []}
               />
             </div>
           </>

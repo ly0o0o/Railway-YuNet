@@ -1,8 +1,100 @@
-# YuNet Face API (Railway)
+# Railway YuNet — Monorepo
 
-一个独立的 YuNet 人脸检测 HTTP 微服务，适合给 Cloudflare Worker / Node 服务调用。
+三个服务共享一个 PostgreSQL，部署在同一个 Railway 项目里。
 
-## 1. 项目结构
+## 架构
+
+```
+┌─────────────────────────── Railway Project ───────────────────────────────┐
+│                                                                            │
+│  services/face-api        services/worker         services/backend-api    │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────────┐ │
+│  │  YuNet Face API  │    │  Detection Worker │    │   Query API          │ │
+│  │  POST /detect    │◄───│  轮询 jobs 表    │    │  GET  /jobs          │ │
+│  │  POST /detect-   │    │  调用 face-api   │    │  POST /jobs          │ │
+│  │       batch      │    │  写入检测结果    │    │  GET  /jobs/:id      │ │
+│  │  POST /detect-url│    └────────┬─────────┘    └──────────┬───────────┘ │
+│  └──────────────────┘             │  内网                    │  内网       │
+│                                   ▼                          ▼             │
+│                          ┌──────────────────────────────────────────────┐ │
+│                          │              PostgreSQL                       │ │
+│                          │         detection_jobs table                  │ │
+│                          └──────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────────── ┘
+```
+
+## 项目结构
+
+```text
+services/
+├── face-api/          # YuNet ONNX 人脸检测服务（已部署）
+│   ├── main.py
+│   ├── face_detector.py
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── railway.toml
+│   └── models/
+│       └── face_detection_yunet_2023mar.onnx
+├── worker/            # 后台刷数据 Worker（待开发 - Node.js）
+└── backend-api/       # 查询接口 API（待开发 - Node.js）
+```
+
+## Railway Monorepo 配置
+
+每个服务在 Railway 里独立部署，指向同一个 GitHub 仓库，但 **Root Directory** 不同：
+
+| Railway 服务 | Root Directory |
+|-------------|---------------|
+| face-api | `services/face-api` |
+| worker | `services/worker` |
+| backend-api | `services/backend-api` |
+
+**添加新服务步骤：**
+1. Railway 项目 → New Service → GitHub Repo → 选本仓库
+2. Settings → Source → Root Directory → 填对应路径
+3. Railway 自动识别该目录下的 `Dockerfile`
+
+## 服务说明
+
+### face-api（`https://yunet-ek-production.up.railway.app`）
+
+| Method | Path | 说明 |
+|--------|------|------|
+| GET | `/health` | 健康检查 |
+| POST | `/detect` | 单图上传检测 |
+| POST | `/detect-batch` | 多图批量检测 |
+| POST | `/detect-url` | 传 URL 检测 |
+
+### backend-api（待开发 - Node.js）
+
+查询任务结果的 REST API，直连 PostgreSQL。
+
+### worker（待开发 - Node.js）
+
+后台长驻进程，定时轮询任务队列，调用 face-api 完成检测并写回结果。
+
+## 环境变量
+
+Railway 同项目内所有服务自动获得：
+```
+DATABASE_URL=postgresql://...@postgres.railway.internal:5432/railway
+```
+
+face-api 可选：
+```
+API_SECRET=your_secret
+SCORE_THRESHOLD=0.6
+MAX_SIZE=1024
+```
+
+## 本地开发
+
+```bash
+cd services/face-api && pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+## 1. 原项目结构（已迁移）
 
 ```text
 .

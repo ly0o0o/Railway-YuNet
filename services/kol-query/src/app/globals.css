@@ -1,41 +1,130 @@
 @import "tailwindcss";
 
 :root {
-  --bg-base: #0d0d0f;
-  --bg-card: #16181d;
-  --bg-card-hover: #1e2028;
-  --bg-sidebar: #111318;
-  --border: #2a2d36;
-  --border-light: #3a3d48;
-  --text-primary: #f0f0f5;
-  --text-secondary: #9099b0;
-  --text-muted: #5a6178;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-dim: #6366f115;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --bg-base: #f6f4ef;
+  --bg-shell: #fffdf8;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8f4ec;
+  --bg-sidebar: #fefcf7;
+  --border: #ded7c8;
+  --border-light: #c9bea8;
+  --text-primary: #1f1e1b;
+  --text-secondary: #5b5549;
+  --text-muted: #827a6c;
+  --accent: #0f766e;
+  --accent-hover: #0b5d57;
+  --accent-dim: rgba(15, 118, 110, 0.12);
+  --highlight: #d97706;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --shadow-soft: 0 14px 40px rgba(54, 42, 21, 0.1);
+  --shadow-card: 0 8px 22px rgba(84, 66, 32, 0.08);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
-  background: var(--bg-base);
+  background:
+    radial-gradient(circle at 12% 8%, rgba(217, 119, 6, 0.14), transparent 34%),
+    radial-gradient(circle at 86% 4%, rgba(15, 118, 110, 0.14), transparent 38%),
+    radial-gradient(circle at 50% 82%, rgba(139, 92, 246, 0.08), transparent 42%),
+    var(--bg-base);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-family: "Avenir Next", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.24);
+}
+
+input,
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.surface-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(254, 250, 244, 0.92) 100%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  border-radius: 22px;
+}
+
+.fade-up {
+  animation: fade-up 0.38s ease both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
 
-/* Checkbox custom */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cfc4b1;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #bcae97;
+}
+
+/* Checkbox */
 input[type="checkbox"] {
   accent-color: var(--accent);
   width: 14px;
   height: 14px;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+input[type="number"],
+input[type="text"] {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
 }

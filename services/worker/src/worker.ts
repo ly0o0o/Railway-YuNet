@@ -2,7 +2,7 @@ import 'dotenv/config'
 import pLimit from 'p-limit'
 import { config } from './config.js'
 import { createPool, initSchema, fetchDoneUserIds, upsertKolProfile } from './db.js'
-import { createMilvusClient, closeMilvusClient, fetchKolsFromMilvus } from './milvus.js'
+import { createMilvusClient, closeMilvusClient, fetchKolBatch } from './milvus.js'
 import { analyzeKol } from './ai.js'
 import type { KolWithVideos, KolProfileRow } from './types.js'
 
@@ -31,7 +31,6 @@ async function processKol(kol: KolWithVideos): Promise<void> {
     const result = await analyzeKol(kol.videos)
 
     if (result === null) {
-      // 所有图片不可访问
       console.log(`${label} no_image`)
       row.aiStatus = 'no_image'
     } else {
@@ -61,8 +60,9 @@ async function processKol(kol: KolWithVideos): Promise<void> {
 
 // ─── 主入口 ──────────────────────────────────────────────────────────────────
 async function main(): Promise<void> {
+  const { targetKolCount, concurrency } = config.worker
   console.log('=== KOL Worker Starting ===')
-  console.log(`Target: ${config.worker.targetKolCount} KOLs | Concurrency: ${config.worker.concurrency}`)
+  console.log(`Target: ${targetKolCount} KOLs | Concurrency: ${concurrency}`)
 
   // 1. 初始化连接
   createPool()
@@ -71,43 +71,50 @@ async function main(): Promise<void> {
   // 2. 确保 PG 表和索引存在
   await initSchema()
 
-  // 3. 查询已完成的 userId（跳过重复处理）
-  const doneIds = await fetchDoneUserIds()
-  console.log(`[worker] Already done: ${doneIds.size} KOLs`)
+  // 3. 加载已完成的 userId，作为本次运行的排除集合
+  const processedIds = await fetchDoneUserIds()
+  console.log(`[worker] Already done: ${processedIds.size} KOLs`)
 
-  // 4. 从 Milvus 拉取数据（多拉一些，去掉已处理的后还够 target）
-  const fetchTarget = config.worker.targetKolCount + doneIds.size
-  const allKols = await fetchKolsFromMilvus(fetchTarget)
+  const limit     = pLimit(concurrency)
+  let totalDone   = processedIds.size
+  let batchNo     = 0
 
-  // 5. 过滤掉已处理完成的
-  const pending = allKols.filter(k => !doneIds.has(k.userId))
-  const remaining = Math.max(0, config.worker.targetKolCount - doneIds.size)
-  const toProcess = pending.slice(0, remaining)
+  // 4. 流式批处理主循环
+  //    每轮：拉一批新 KOL → 并发处理 → 加入排除集 → 继续
+  //    offset 永远为 0，靠 userId not in [...] 推进，彻底规避 Zilliz 16384 限制
+  while (totalDone < targetKolCount) {
+    batchNo++
+    const remaining = targetKolCount - totalDone
+    console.log(`\n[worker] === Batch #${batchNo} | remaining: ${remaining} ===`)
 
-  if (toProcess.length === 0) {
-    console.log('[worker] Nothing to process. All done!')
-    process.exit(0)
+    const kols = await fetchKolBatch(processedIds, config.milvus.pageSize)
+
+    if (kols.length === 0) {
+      console.log('[worker] No more KOLs available in Milvus. Stopping.')
+      break
+    }
+
+    // 只取本批里还缺的数量，避免超额处理
+    const toProcess = kols.slice(0, remaining)
+
+    let batchDone = 0
+    await Promise.all(
+      toProcess.map(kol =>
+        limit(async () => {
+          await processKol(kol)
+          processedIds.add(kol.userId)
+          totalDone++
+          batchDone++
+        })
+      )
+    )
+
+    console.log(
+      `[worker] Batch #${batchNo} done: +${batchDone} KOLs | total: ${totalDone} / ${targetKolCount}`
+    )
   }
 
-  console.log(`[worker] Processing ${toProcess.length} KOLs...`)
-
-  // 6. 并发处理
-  const limit = pLimit(config.worker.concurrency)
-  let finished = 0
-
-  await Promise.all(
-    toProcess.map(kol =>
-      limit(async () => {
-        await processKol(kol)
-        finished++
-        if (finished % 100 === 0 || finished === toProcess.length) {
-          console.log(`[worker] Progress: ${finished} / ${toProcess.length}`)
-        }
-      })
-    )
-  )
-
-  console.log(`=== KOL Worker Finished: ${finished} KOLs processed ===`)
+  console.log(`\n=== KOL Worker Finished: ${totalDone} KOLs processed ===`)
   await closeMilvusClient()
   process.exit(0)
 }

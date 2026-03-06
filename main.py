@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional
 
 import httpx
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -64,6 +65,13 @@ def load_settings() -> Settings:
 
 
 class DetectResponse(BaseModel):
+    has_face: bool
+    confidence: float
+    error: Optional[str] = None
+
+
+class DetectBatchItemResponse(BaseModel):
+    filename: str
     has_face: bool
     confidence: float
     error: Optional[str] = None
@@ -189,3 +197,41 @@ async def detect_url(payload: DetectUrlRequest, request: Request) -> DetectRespo
             confidence=0.0,
             error=f"fetch_failed: {exc}",
         )
+
+
+@app.post("/detect-batch", response_model=List[DetectBatchItemResponse])
+async def detect_batch(
+    request: Request,
+    files: List[UploadFile] = File(...),
+) -> List[DetectBatchItemResponse]:
+    """Detect faces in multiple images concurrently.
+
+    Send as multipart/form-data with multiple `files` fields.
+    Results are returned in the same order as the uploaded files.
+    """
+    _auth_guard(request)
+
+    if not files:
+        raise HTTPException(status_code=422, detail="No files provided")
+
+    async def _process_one(f: UploadFile) -> DetectBatchItemResponse:
+        try:
+            image_bytes = await f.read()
+            result = await _run_detection(image_bytes)
+            return DetectBatchItemResponse(
+                filename=f.filename or "",
+                has_face=result.has_face,
+                confidence=result.confidence,
+                error=result.error,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Batch item detection failed: %s", f.filename)
+            return DetectBatchItemResponse(
+                filename=f.filename or "",
+                has_face=False,
+                confidence=0.0,
+                error=str(exc),
+            )
+
+    results = await asyncio.gather(*[_process_one(f) for f in files])
+    return list(results)
